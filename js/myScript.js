@@ -322,3 +322,150 @@ function responseNew(response){
          `;
   }
 }
+
+/*
+ * Esta función invoca al CGI view.pl, la respuesta del CGI debe ser
+ * atendida por responseView
+ */
+function doView(owner, title){
+  const url = new URL("http://192.168.1.23/~alumno/cgi-bin/view.pl");
+  url.searchParams.set('owner', owner);
+  url.searchParams.set('title', title);
+
+  let xhr = new XMLHttpRequest();
+
+  xhr.onload = function () {
+    console.log(xhr.responseXML);
+    responseView(xhr.responseXML);
+  };
+  xhr.open("GET", url);
+  xhr.send();
+}
+
+/*
+ * Esta función muestra la respuesta del cgi view.pl en el HTML o 
+ * un mensaje de error en caso de algún problema.
+ */
+function responseView(response){
+  const root = response.querySelector("*");
+  console.log(root);
+  document.querySelector('#main').innerHTML = root.innerHTML;
+}
+
+/*
+ * Esta función invoca al CGI delete.pl recibe los datos del artículo a 
+ * borrar como argumentos, la respuesta del CGI debe ser atendida por doList
+ */
+function doDelete(owner, title){
+  const url = new URL("http://192.168.1.23/~alumno/cgi-bin/delete.pl");
+  url.searchParams.set('owner', owner);
+  url.searchParams.set('title', title);
+
+  fetch(url)
+  .then(response => {
+    if (!response.ok) {
+      throw new Error(response.statusText);
+    }
+    //procesa la respuesta del CGI
+    return response.text();
+  })
+  .then(xml => {
+    //utiliza los datos devueltos por el CGI para actualizar la lista de artículos
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xml, 'text/xml');
+    console.log(xmlDoc);
+    doList(xmlDoc);
+  })
+  .catch(error => {
+    //maneja cualquier error que ocurra durante la solicitud
+    console.error(error);
+    alert("Ocurrió un error al eliminar la página. Vuelva a intentarlo");
+  });
+}
+
+/*
+ * Esta función recibe los datos del articulo a editar e invoca al cgi
+ * article.pl la respuesta del CGI es procesada por responseEdit
+ */
+function doEdit(owner, title){
+  const url = new URL("http://192.168.1.23/~alumno/cgi-bin/article.pl");
+  url.searchParams.set('owner', owner);
+  url.searchParams.set('title', title);
+
+  fetch(url)
+  .then(response => {
+    if (!response.ok) {
+      throw new Error(response.statusText);
+    }
+    //procesa la respuesta del CGI
+    return response.text();
+  })
+  .then(xml => {
+    //utiliza los datos devueltos por el CGI para actualizar la lista de artículos
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xml, 'text/xml');
+    console.log(xmlDoc);
+    responseEdit(xmlDoc);
+  })
+  .catch(error => {
+    //maneja cualquier error que ocurra durante la solicitud
+    console.error(error);
+    alert("Ocurrió un error al eliminar la página. Vuelva a intentarlo");
+  });
+}
+
+/*
+ * Esta función recibe la respuesta del CGI data.pl y muestra el formulario 
+ * de edición con los datos llenos y dos botones:
+ * - Actualizar que invoca a doUpdate
+ * - Cancelar que invoca a doList
+ */
+function responseEdit(xml){
+  const title = xml.querySelector('title').textContent;
+  const text = xml.querySelector('text').textContent;
+  console.log(title);
+  console.log(text);
+
+  const html = `
+      <h2>${title}</h2>
+      <textarea rows='20' cols='60' id='text'>${text}</textarea><br>
+      <button onclick="doUpdate('${title}')">Actualizar</button>
+      <button onclick='doList()'>Cancelar</button>
+      `;
+  document.querySelector('#main').innerHTML = html;
+}
+/*
+ * Esta función recibe el título del artículo y con la variable userKey y 
+ * lo llenado en el formulario, invoca a update.pl
+ * La respuesta del CGI debe ser atendida por responseNew
+ */
+function doUpdate(title){
+  const text = document.querySelector('#text').value;
+  console.log(text);
+
+  const url = new URL("http://192.168.1.23/~alumno/cgi-bin/update.pl");
+  url.searchParams.set('title', title);
+  url.searchParams.set('owner', userKey);
+  url.searchParams.set('text', text);
+  
+  fetch(url)
+  .then(response => {
+    if (!response.ok) {
+      throw new Error(response.statusText);
+    }
+    //procesa la respuesta del CGI
+    return response.text();
+  })
+  .then(xml => {
+    //utiliza los datos devueltos por el CGI para actualizar la lista de artículos
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xml, 'text/xml');
+    console.log(xmlDoc);
+    responseNew(xmlDoc);
+  })
+  .catch(error => {
+    //maneja cualquier error que ocurra durante la solicitud
+    console.error(error);
+    alert("Ocurrió un error al actualizar la página. Vuelva a intentarlo");
+  });
+}
