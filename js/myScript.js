@@ -112,3 +112,213 @@ function showLoggedIn(){
     console.error('Error al mostrar el menú para usuarios registrados:', error);
   }
 }
+/**
+ * Esta función crea el formulario para el registro de nuevos usuarios
+ * el fomulario se mostrará en tag div con id main.
+ * La acción al presionar el bontón de Registrar será invocar a la 
+ * función doCreateAccount
+ * */
+function showCreateAccount(){
+  const html = `
+      <label for="userName">Usuario</label>
+      <input type="text" id="userName" name="userName" placeholder='Ingrese su usuario' required><br>
+      <label for="password">Contraseña</label>
+      <input type="password" id="password" name="password" placeholder='Ingrese su contraseña' required><br>
+      <label for="firstName">Nombres</label>
+      <input type="text" id="firstName" name="firstName" placeholder='Ingrese su nombre' required><br>
+      <label for="lastName">Apellidos</label>
+      <input type="text" id="lastName" name="lastName" placeholder='Ingrese su Apellido' required><br>
+      <button type="submit" onclick="doCreateAccount()">Crear Cuenta</button>
+  `;
+  document.querySelector('#main').innerHTML = html;
+}
+
+/* Esta función extraerá los datos ingresados en el formulario de
+ * registro de nuevos usuarios e invocará al CGI register.pl
+ * la respuesta de este CGI será procesada por loginResponse.
+ */
+function doCreateAccount(){
+  //Extraer valores de entrada
+  const userName = document.querySelector('#userName').value;
+  const password = document.querySelector('#password').value;
+  const firstName = document.querySelector('#firstName').value;
+  const lastName = document.querySelector('#lastName').value;
+
+  console.log(userName + " " + password + " " + lastName + " " + firstName);
+  //Validar valores de los input
+  if (!userName || !password || !firstName || !lastName){ 
+    return alert('Por favor, rellena todos los campos del formulario');
+  }
+
+  if (userName.length < 3 || userName.length > 20) {
+    document.querySelector('#userName').value = "";
+     return alert('El nombre de usuario debe tener entre 3 y 20 caracteres');
+  }
+
+  if (password.length < 8) {
+    document.querySelector('#password').value = "";
+    return alert('La contraseña debe tener al menos 8 caracteres');
+  }
+  
+  const url = new URL("http://192.168.1.23/~alumno/cgi-bin/register.pl");
+  url.searchParams.set('userName', userName);
+  url.searchParams.set('password', password);
+  url.searchParams.set('firstName', firstName);
+  url.searchParams.set('lastName', lastName);
+  console.log(url);
+  
+  fetch(url)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(response.statusText);
+      }
+      return response.text();
+    })
+    .then(xml => {
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(xml, "text/xml");
+      console.log(xmlDoc);
+      loginResponse(xmlDoc);
+    })
+    .catch(error => {
+      console.error(error);
+      alert("Ocurrió un error al registrase. Vuelva a intentarlo");
+    });
+
+}
+/*
+ * Esta función invocará al CGI list.pl usando el nombre de usuario 
+ * almacenado en la variable userKey
+ * La respuesta del CGI debe ser procesada por showList
+ */
+function doList(){
+  const url = new URL("http://192.168.1.23/~alumno/cgi-bin/list.pl");
+  url.searchParams.set('owner', userKey);
+  console.log(url);
+
+  fetch(url)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(response.statusText);
+      }
+      return response.text();
+    })
+    .then(xml => {
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(xml, "text/xml");
+      console.log(xmlDoc);
+      showList(xmlDoc);
+    })
+    .catch(error => {
+      console.error(error);
+      alert("Ocurrió un error al listar las páginas. Vuelva a intentarlo");
+    });
+}
+
+/**
+ * Esta función recibe un objeto XML con la lista de artículos de un usuario
+ * y la muestra incluyendo:
+ * - Un botón para ver su contenido, que invoca a doView.
+ * - Un botón para borrarla, que invoca a doDelete.
+ * - Un botón para editarla, que invoca a doEdit.
+ * En caso de que lista de páginas esté vacia, deberá mostrar un mensaje
+ * indicándolo.
+ */
+function showList(xml){
+  const articles = xml.querySelector('articles');
+  
+  if (articles.textContent.trim() === '') {
+    //Añadir el título al elemento main
+    document.querySelector('#main').innerHTML = `<h2>No tienes ninguna página creada</h2>`;
+  } else {
+    document.querySelector('#main').innerHTML = `<h2>Lista de páginas</h2>`;
+
+    for (let i = 0; i < articles.children.length; i++) {
+      let title = articles.children[i].children[1].textContent;
+      var listElement = `
+          <span>${title}</span>
+          <button onclick="doView('${userKey}','${title}')">V</button>
+          <button onclick="doDelete('${userKey}','${title}')">X</button>
+          <button onclick="doEdit('${userKey}','${title}')">E</button><br>
+          `;
+      document.getElementById("main").innerHTML += listElement;
+    }
+  }
+}
+
+/**
+ * Esta función deberá generar un formulario para la creación de un nuevo
+ * artículo, el formulario deberá tener dos botones
+ * - Enviar, que invoca a doNew 
+ * - Cancelar, que invoca doList
+ */
+function showNew(){
+  const formhtml = `
+      <label>Título</label>
+      <input type="text" id="title" name="titulo" placeholder='Ingrese el título' required><br>
+      <label>Texto</label>
+      <textarea rows='20' cols='60' id="text" name="texto" required></textarea><br>
+      <button onclick="doNew()">Enviar</button>
+      <button onclick="doList()">Cancelar</button>
+      `;
+  document.querySelector('#main').innerHTML = formhtml;
+}
+
+/*
+ * Esta función invocará new.pl para resgitrar un nuevo artículo
+ * los datos deberán ser extraidos del propio formulario
+ * La acción de respuesta al CGI deberá ser una llamada a la 
+ * función responseNew
+ */
+function doNew(){
+  //Extraer valores de entrada
+  const title = document.querySelector('#title').value;
+  const text = document.querySelector('#text').value;
+
+  //Validar valores de los input
+  if (!title || !text) {
+    return alert('Por favor, rellena todos los campos del formulario');
+  }
+
+  const url = new URL("http://192.168.1.23/~alumno/cgi-bin/new.pl");
+  url.searchParams.set('title', title);
+  url.searchParams.set('text', text);
+  url.searchParams.set('owner', userKey);
+  console.log(url);
+  
+  fetch(url)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(response.statusText);
+      }
+      return response.text();
+    })
+    .then(xml => {
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(xml, "text/xml");
+      console.log(xmlDoc);
+      responseNew(xmlDoc);
+    })
+    .catch(error => {
+      console.error(error);
+      alert("Ocurrió un error al crear la página. Vuelva a intentarlo");
+    });
+}
+
+/*
+ * Esta función obtiene los datos del artículo que se envían como respuesta
+ * desde el CGI new.pl y los muestra en el HTML o un mensaje de error si
+ * correspondiera
+ */
+function responseNew(response){
+  const article = response.querySelector('article');
+
+  if (article.textContent.trim() === '') {
+    document.querySelector('#main').innerHTML = `<h2>Ocurrió un error al crear la página. Vuelva a intentarlo</h2>`;
+  } else {
+    document.querySelector('#main').innerHTML = `
+         <h2>Título: ${article.querySelector('title').textContent}</h2>
+         <pre>${article.querySelector('text').textContent}<pre>
+         `;
+  }
+}
